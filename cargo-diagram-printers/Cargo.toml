@@ -9,4 +9,4 @@ repository = "https://github.com/gladion136/cargo-diagram"
 
 
 [dependencies]
-cargo-diagram-visitors = { path = "../cargo-diagram-visitors" }
+cargo-diagram-visitors = "0.1.1"

@@ -7,7 +7,7 @@ name = "cargo-diagram"
 version = "0.1.1"
 dependencies = [
  "cargo-diagram-printers",
- "cargo-diagram-visitors",
+ "cargo-diagram-visitors 0.1.1",
  "tracing",
 ]
 
@@ -15,12 +15,22 @@ dependencies = [
 name = "cargo-diagram-printers"
 version = "0.1.1"
 dependencies = [
- "cargo-diagram-visitors",
+ "cargo-diagram-visitors 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "cargo-diagram-visitors"
 version = "0.1.1"
+dependencies = [
+ "syn",
+ "tracing",
+]
+
+[[package]]
+name = "cargo-diagram-visitors"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9691329bea58593b1835543b60f9fe4cefd04a2e35bdf817851ca7cffeabd681"
 dependencies = [
  "syn",
  "tracing",
