@@ -1,0 +1,13 @@
+[package]
+name = "cargo-diagram"
+version = "0.1.1"
+edition = "2021"
+authors = ["Etienne Schmidt <eschmidt@schmidt-ti.eu>"]
+description = "Creates diagrams about your crate"
+license = "MIT"
+repository = "https://github.com/gladion136/cargo-diagram"
+
+[dependencies]
+cargo-diagram-visitors = { path = "../cargo-diagram-visitors" }
+cargo-diagram-printers = { path = "../cargo-diagram-printers" }
+tracing = "0"

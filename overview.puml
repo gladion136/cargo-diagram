@@ -1,0 +1,36 @@
+@startuml
+class analyzer {
+  + analyze_repository()
+  + analyze_crate_files()
+}
+class console {
+  + print_to_console()
+}
+class cargo_diagram_visitors__lib {
+  + parse_rust_file()
+  + analyze_file()
+  + find_module_path()
+}
+cargo_diagram_visitors__lib --> module_visitor
+class cargo_diagram_printers__lib {
+}
+cargo_diagram_printers__lib --> console
+cargo_diagram_printers__lib --> uml
+class cargo_diagram__main {
+  + main()
+}
+cargo_diagram__main --> analyzer
+class uml {
+  + print_uml()
+}
+class module_visitor {
+  + ModuleInfo : struct
+    Derives: Debug
+  + StructInfo : struct
+    Derives: Debug
+  + ModulesVisitor : struct
+    Implements: Visit<...>
+  + extract_derives()
+  + format_path()
+}
+@enduml
