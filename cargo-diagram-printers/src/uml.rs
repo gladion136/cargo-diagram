@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-use cargo_diagram_visitors::module_visitor::ModulesVisitor;
+use cargo_diagram_visitors::module_visitor::{FunctionInfo, ModulesVisitor};
 
 /// Print uml (Plantuml)
 pub fn print_uml(visitor: &ModulesVisitor, output_path: &PathBuf) {
@@ -17,9 +17,15 @@ pub fn print_uml(visitor: &ModulesVisitor, output_path: &PathBuf) {
         // Print the module as a class
         uml_content.push_str(&format!("class {} {{\n", module.replace(".", "_"))); // Replace '.' with '_' for valid class names
 
+        // Add module description if available
+        uml_content.push_str(&format!("  ' {}\n", &info.description)); // Add module description as a comment
+
         // Add structs
         for (struct_name, struct_info) in &info.structs {
             uml_content.push_str(&format!("  + {} : struct\n", struct_name));
+
+            // Add struct description if available
+            uml_content.push_str(&format!("    ' {}\n", &struct_info.description)); // Add struct description as a comment
 
             // Add derives
             for derive in &struct_info.derives {
@@ -33,13 +39,15 @@ pub fn print_uml(visitor: &ModulesVisitor, output_path: &PathBuf) {
 
             // Add functions associated with the struct
             for function in &struct_info.functions {
-                uml_content.push_str(&format!("    + {}()\n", function)); // Add public function signature
+                let fn_signature = format_function_signature(function);
+                uml_content.push_str(&format!("    + {}\n", fn_signature)); // Add public function signature
             }
         }
 
         // Add public functions of the module
         for function in &info.functions {
-            uml_content.push_str(&format!("  + {}()\n", function)); // Add public function signature
+            let fn_signature = format_function_signature(function);
+            uml_content.push_str(&format!("  + {}\n", fn_signature)); // Add public function signature
         }
 
         // Close the class definition
@@ -62,4 +70,18 @@ pub fn print_uml(visitor: &ModulesVisitor, output_path: &PathBuf) {
     let mut file = File::create(output_path).expect("Unable to create file");
     file.write_all(uml_content.as_bytes())
         .expect("Unable to write data");
+}
+
+/// Helper function to format function signature with parameters
+fn format_function_signature(function: &FunctionInfo) -> String {
+    let input_params = function
+        .parameters
+        .iter()
+        .map(|param| format!("{}: {}", param.name, param.param_type)) // Assuming you have a name and type for parameters
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let output_param = format!(" -> {}", function.return_type);
+
+    format!("{}({}){}", function.name, input_params, output_param)
 }

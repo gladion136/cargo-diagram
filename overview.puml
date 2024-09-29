@@ -1,36 +1,60 @@
 @startuml
 class analyzer {
-  + analyze_repository()
-  + analyze_crate_files()
+  ' 
+  + analyze_repository(current_dir: Path, visitor: ModulesVisitor) -> ()
+  + analyze_crate_files(crate_dir: Path, visitor: ModulesVisitor) -> ()
 }
-class console {
-  + print_to_console()
+class cargo_diagram__main {
+  ' 
+  + main() -> ()
 }
-class cargo_diagram_visitors__lib {
-  + parse_rust_file()
-  + analyze_file()
-  + find_module_path()
-}
-cargo_diagram_visitors__lib --> module_visitor
+cargo_diagram__main --> analyzer
 class cargo_diagram_printers__lib {
+  ' 
 }
 cargo_diagram_printers__lib --> console
 cargo_diagram_printers__lib --> uml
-class cargo_diagram__main {
-  + main()
-}
-cargo_diagram__main --> analyzer
-class uml {
-  + print_uml()
-}
 class module_visitor {
-  + ModuleInfo : struct
+  ' 
+  + FunctionInfo : struct
+    '  Info about one function
     Derives: Debug
-  + StructInfo : struct
-    Derives: Debug
+    Derives: Clone
   + ModulesVisitor : struct
+    '  Collects information about multiple modules
     Implements: Visit<...>
-  + extract_derives()
-  + format_path()
+  + ModuleInfo : struct
+    '  Info about one module
+    Derives: Debug
+    Derives: Clone
+  + ParameterInfo : struct
+    '  Info about function parameters
+    Derives: Debug
+    Derives: Clone
+  + StructInfo : struct
+    '  Info about one struct
+    Derives: Debug
+    Derives: Clone
+  + extract_derives(attrs: [Attribute]) -> Vec < String >
+  + get_type_name(ty: Type) -> String
+  + extract_doc_comment(attrs: [Attribute]) -> String
+  + extract_function_params(inputs:  Comma >) -> Vec < ParameterInfo >
+  + format_path(path:  Path) -> String
+}
+class console {
+  ' 
+  + print_to_console(visitor: ModulesVisitor) -> ()
+}
+class cargo_diagram_visitors__lib {
+  ' 
+  + parse_rust_file(file_path: StdPath) ->  File
+  + analyze_file(file_path: StdPath, base_dir: StdPath, module_name: str, visitor: ModulesVisitor) -> ()
+  + find_module_path(module: str, base_dir: StdPath) -> Option < PathBuf >
+}
+cargo_diagram_visitors__lib --> module_visitor
+class uml {
+  ' 
+  + print_uml(visitor: ModulesVisitor, output_path: PathBuf) -> ()
+  + format_function_signature(function: FunctionInfo) -> String
 }
 @enduml

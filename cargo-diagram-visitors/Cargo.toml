@@ -1,6 +1,6 @@
 [package]
 name = "cargo-diagram-visitors"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Etienne Schmidt <eschmidt@schmidt-ti.eu>"]
 description = "Contains visitors for cargo-diagram"
@@ -9,5 +9,5 @@ repository = "https://github.com/gladion136/cargo-diagram"
 
 
 [dependencies]
-syn = { version = "2", features = ["full", "visit"] }
+syn = { version = "2", features = ["full", "visit", "extra-traits", "parsing"] }
 tracing = "0"

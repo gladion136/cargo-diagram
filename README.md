@@ -25,4 +25,4 @@ cargo install cargo-diagram
 
 ## Module Overview
 
-![](./overview.svg)
+![](./overview.png)

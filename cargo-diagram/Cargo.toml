@@ -1,6 +1,6 @@
 [package]
 name = "cargo-diagram"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Etienne Schmidt <eschmidt@schmidt-ti.eu>"]
 description = "Creates diagrams about your crate"
@@ -8,6 +8,6 @@ license = "MIT"
 repository = "https://github.com/gladion136/cargo-diagram"
 
 [dependencies]
-cargo-diagram-visitors = "0.1.1"
-cargo-diagram-printers = "0.1.1"
+cargo-diagram-visitors = { version = "0.1.2" }
+cargo-diagram-printers = { version = "0.1.2" }
 tracing = "0"
