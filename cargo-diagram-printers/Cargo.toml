@@ -1,6 +1,6 @@
 [package]
 name = "cargo-diagram-printers"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Etienne Schmidt <eschmidt@schmidt-ti.eu>"]
 description = "Contains printers for cargo-diagram"
@@ -9,4 +9,4 @@ repository = "https://github.com/gladion136/cargo-diagram"
 
 
 [dependencies]
-cargo-diagram-visitors = { path = "../cargo-diagram-visitors" }
+cargo-diagram-visitors = { version = "0.1.3" }

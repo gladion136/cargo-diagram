@@ -1,6 +1,6 @@
 [package]
 name = "cargo-diagram"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Etienne Schmidt <eschmidt@schmidt-ti.eu>"]
 description = "Creates diagrams about your crate"
@@ -8,8 +8,8 @@ license = "MIT"
 repository = "https://github.com/gladion136/cargo-diagram"
 
 [dependencies]
-cargo-diagram-visitors = { path = "../cargo-diagram-visitors" }
-cargo-diagram-printers = { path = "../cargo-diagram-printers" }
+cargo-diagram-visitors = { version = "0.1.3" }
+cargo-diagram-printers = { version = "0.1.3" }
 tracing = "0"
 clap = { version = "4.5.4", features = ["derive"] }
 clap_derive = "=4.5.18"
