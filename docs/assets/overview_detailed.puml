@@ -2,7 +2,13 @@
 left to right direction
 skinparam lineType ortho
 package cargo_diagram__main #lightskyblue {
-  class cargo_diagram__main::Args as "Args" <<struct>> {
+  class cargo_diagram__main::Cli as "Cli" <<struct>> {
+    .. Derives ..
+    Parser
+    .. Members ..
+    command: Commands
+  }
+  class cargo_diagram__main::DiagramArgs as "DiagramArgs" <<struct>> {
     '  Creates diagrams about your crate
     .. Derives ..
     Parser
@@ -15,11 +21,17 @@ package cargo_diagram__main #lightskyblue {
     trait_color: String
     functions_private: bool
   }
+  class cargo_diagram__main_mod <<mod>> #lightskyblue {
+    .. Module functions ..
+    - main() -> ()
+  }
   package analyzer #lightskyblue {
     class analyzer_mod <<mod>> #lightskyblue {
       .. Module functions ..
       //  Analyze a repository
       + analyze_repository(current_dir: &Path, visitor: &ModulesVisitor) -> ()
+      //  Analyze crate files (main.rs / lib.rs)
+      - analyze_crate_files(crate_dir: &Path, visitor: &ModulesVisitor) -> ()
     }
   }
 }
@@ -61,14 +73,25 @@ package cargo_diagram_printers__lib #lightskyblue {
       .. Module functions ..
       //  Print uml (Plantuml)
       + print_uml_to_file(visitor: &ModulesVisitor, output_path: &PathBuf, opt: PrintOptions) -> ()
+      //  Recursive function to process modules and their submodules as nested packages
+      - add_module_to_uml(uml_content: &String, package_name: String, info: &cargo_diagram_visitors :: module_visitor :: ModuleInfo, visitor: &ModulesVisitor, level: usize, opt: PrintOptions) -> ()
+      - print_functions(uml_content: &String, indent: String, functions: &Vec < FunctionInfo >, opt: PrintOptions) -> ()
+      //  Add relationships between structs and enums based on their members
+      - add_relations(uml_content: &String, visitor: &ModulesVisitor) -> ()
+      //  Helper function to format function signature with parameters
+      - format_function_signature(function: &FunctionInfo) -> String
     }
   }
 }
 package cargo_diagram_visitors__lib #lightskyblue {
   class cargo_diagram_visitors__lib_mod <<mod>> #lightskyblue {
     .. Module functions ..
+    //  Parse a rust file
+    - parse_rust_file(file_path: &StdPath) -> syn :: File
     //  Analyze a file and add content to visitor
     + analyze_file(file_path: &StdPath, base_dir: &StdPath, module_name: &str, visitor: &ModulesVisitor) -> ()
+    //  Get module path
+    - find_module_path(module: &str, base_dir: &StdPath) -> Option < PathBuf >
   }
   package module_visitor #lightskyblue {
     class module_visitor::EnumInfo as "EnumInfo" <<struct>> {
@@ -153,6 +176,16 @@ package cargo_diagram_visitors__lib #lightskyblue {
       name: String
       functions: Vec < FunctionInfo >
       description: String
+    }
+    class module_visitor_mod <<mod>> #lightskyblue {
+      .. Module functions ..
+      - extract_struct_members(fields: &syn :: Fields, current_module: &str) -> Vec < MemberInfo >
+      - extract_enum_variants(item_enum: &syn :: ItemEnum) -> Vec < String >
+      - extract_derives(attrs: &[Attribute]) -> Vec < String >
+      - get_type_name(ty: &Type, current_module: &str) -> String
+      - extract_doc_comment(attrs: &[Attribute]) -> String
+      - extract_function_params(inputs: &syn :: punctuated :: Punctuated < syn :: FnArg , syn :: token :: Comma >, current_module: &str) -> Vec < ParameterInfo >
+      - format_path(path: &syn :: Path) -> String
     }
   }
 }

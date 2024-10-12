@@ -2,7 +2,13 @@
 left to right direction
 skinparam lineType ortho
 package cargo_diagram__main #lightskyblue {
-  class cargo_diagram__main::Args as "Args" <<struct>> {
+  class cargo_diagram__main::Cli as "Cli" <<struct>> {
+    .. Derives ..
+    Parser
+    .. Members ..
+    command: Commands
+  }
+  class cargo_diagram__main::DiagramArgs as "DiagramArgs" <<struct>> {
     '  Creates diagrams about your crate
     .. Derives ..
     Parser
