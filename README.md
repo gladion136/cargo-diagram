@@ -23,6 +23,25 @@ Install with cargo:
 cargo install cargo-diagram
 ```
 
+## Print options
+
+```
+❯ cargo diagram --help
+Creates diagrams about your crate
+
+Usage: cargo-diagram diagram [OPTIONS]
+
+Options:
+  -r, --relations                    Show relations inside of the diagram (alpha)
+  -p, --path <PATH>                  Select a different path to search [default: ./]
+  -o, --output <OUTPUT>              Select a different path to search [default: ./overview.puml]
+  -m, --module-color <MODULE_COLOR>  [default: #lightskyblue]
+  -t, --trait-color <TRAIT_COLOR>    [default: #violet]
+  -f, --functions-private            Draw private functions
+  -h, --help                         Print help
+  -V, --version                      Print version
+```
+
 ## Module Overview
 
 ## Default
