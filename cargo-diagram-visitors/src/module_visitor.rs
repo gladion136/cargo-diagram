@@ -1,64 +1,83 @@
-//! Modules Overview Visitor
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use syn::__private::ToTokens;
 use syn::parse::Parse;
+use syn::visit::Visit;
 use syn::{
-    visit::Visit, Attribute, ItemFn, ItemImpl, ItemMod, ItemStruct, PatIdent, PatType,
-    PathArguments, ReturnType, TypePath,
+    Attribute, ItemEnum, ItemFn, ItemImpl, ItemMod, ItemStruct, ItemTrait, Lit, Meta, PatIdent,
+    PatType, PathArguments, ReturnType, TraitItem, TraitItemFn, Type, TypePath,
 };
-use syn::{Lit, Meta, Type};
 
-/// Info about one module
 #[derive(Debug, Clone)]
 pub struct ModuleInfo {
-    pub structs: HashMap<String, StructInfo>,
-    pub traits: Vec<String>,
+    pub structs: BTreeMap<String, StructInfo>,
+    pub enums: BTreeMap<String, EnumInfo>,
+    pub traits: Vec<TraitInfo>,
     pub submodules: Vec<String>,
     pub functions: Vec<FunctionInfo>,
-    pub description: String, // To store module description
+    pub description: String,
 }
 
-/// Info about one struct
+#[derive(Debug, Clone)]
+pub struct TraitInfo {
+    pub name: String,
+    pub functions: Vec<FunctionInfo>,
+    pub description: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct StructInfo {
     pub derives: Vec<String>,
     pub impl_traits: Vec<String>,
     pub functions: Vec<FunctionInfo>,
-    pub description: String, // To store struct description
+    pub members: Vec<MemberInfo>,
+    pub description: String,
 }
 
-/// Info about one function
+#[derive(Debug, Clone)]
+pub struct EnumInfo {
+    pub variants: Vec<String>,
+    pub derives: Vec<String>,
+    pub impl_traits: Vec<String>,
+    pub description: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     pub name: String,
     pub parameters: Vec<ParameterInfo>,
+    pub public: bool,
     pub return_type: String,
-    pub description: String, // To store function description
+    pub description: String,
 }
 
-/// Info about function parameters
 #[derive(Debug, Clone)]
 pub struct ParameterInfo {
     pub name: String,
     pub param_type: String,
 }
 
-/// Collects information about multiple modules
+#[derive(Debug, Clone)]
+pub struct MemberInfo {
+    pub name: String,
+    pub member_type: String,
+}
+
 pub struct ModulesVisitor {
-    pub module_map: HashMap<String, ModuleInfo>,
+    pub module_map: BTreeMap<String, ModuleInfo>,
     pub current_module: String,
 }
 
 impl<'ast> Visit<'ast> for ModulesVisitor {
-    // Collect struct info and description
     fn visit_item_struct(&mut self, item_struct: &'ast ItemStruct) {
         let struct_name = item_struct.ident.to_string();
         let description = extract_doc_comment(&item_struct.attrs);
+        let members = extract_struct_members(&item_struct.fields, &self.current_module);
 
         self.module_map
             .entry(self.current_module.clone())
             .or_insert_with(|| ModuleInfo {
-                structs: HashMap::new(),
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
                 traits: Vec::new(),
                 submodules: Vec::new(),
                 functions: Vec::new(),
@@ -71,6 +90,7 @@ impl<'ast> Visit<'ast> for ModulesVisitor {
                     derives: extract_derives(&item_struct.attrs),
                     impl_traits: Vec::new(),
                     functions: Vec::new(),
+                    members,
                     description,
                 },
             );
@@ -78,19 +98,141 @@ impl<'ast> Visit<'ast> for ModulesVisitor {
         syn::visit::visit_item_struct(self, item_struct);
     }
 
-    // Collect function info, description, parameters, and return type
+    fn visit_item_impl(&mut self, item_impl: &'ast ItemImpl) {
+        if let syn::Type::Path(TypePath { path, .. }) = &*item_impl.self_ty {
+            if let Some(struct_name) = path.get_ident() {
+                let struct_name = struct_name.to_string();
+                let module_info = self
+                    .module_map
+                    .entry(self.current_module.clone())
+                    .or_insert_with(|| ModuleInfo {
+                        structs: BTreeMap::new(),
+                        enums: BTreeMap::new(),
+                        traits: Vec::new(),
+                        submodules: Vec::new(),
+                        functions: Vec::new(),
+                        description: String::new(),
+                    });
+
+                // Retrieve or create the StructInfo
+                let struct_info = module_info
+                    .structs
+                    .entry(struct_name.clone())
+                    .or_insert_with(|| StructInfo {
+                        derives: Vec::new(),
+                        impl_traits: Vec::new(),
+                        functions: Vec::new(),
+                        members: Vec::new(),
+                        description: String::new(),
+                    });
+
+                // Check if this impl block implements a trait
+                if let Some((_, trait_path, _)) = &item_impl.trait_ {
+                    // Trait-based impl: Add the trait name
+                    let trait_name = format_path(trait_path);
+                    struct_info.impl_traits.push(trait_name);
+
+                    // Functions in trait impl are public by default
+                    for item in &item_impl.items {
+                        if let syn::ImplItem::Fn(method) = item {
+                            let fn_name = method.sig.ident.to_string();
+                            let parameters =
+                                extract_function_params(&method.sig.inputs, &self.current_module);
+                            let return_type = match &method.sig.output {
+                                ReturnType::Default => "()".to_string(),
+                                ReturnType::Type(_, ty) => get_type_name(ty, &self.current_module),
+                            };
+
+                            let function_info = FunctionInfo {
+                                name: fn_name,
+                                parameters,
+                                public: true, // Trait impl functions are public
+                                return_type,
+                                description: extract_doc_comment(&method.attrs),
+                            };
+
+                            // Add function to the struct's function list
+                            struct_info.functions.push(function_info);
+                        }
+                    }
+                } else {
+                    // Regular impl block (no trait): Functions can be private or public
+                    for item in &item_impl.items {
+                        if let syn::ImplItem::Fn(method) = item {
+                            let fn_name = method.sig.ident.to_string();
+                            let parameters =
+                                extract_function_params(&method.sig.inputs, &self.current_module);
+                            let return_type = match &method.sig.output {
+                                ReturnType::Default => "()".to_string(),
+                                ReturnType::Type(_, ty) => get_type_name(ty, &self.current_module),
+                            };
+
+                            // Check if the function is public or private
+                            let public = matches!(method.vis, syn::Visibility::Public(_));
+
+                            let function_info = FunctionInfo {
+                                name: fn_name,
+                                parameters,
+                                public,
+                                return_type,
+                                description: extract_doc_comment(&method.attrs),
+                            };
+
+                            // Add function to the struct's function list
+                            struct_info.functions.push(function_info);
+                        }
+                    }
+                }
+            }
+        }
+
+        syn::visit::visit_item_impl(self, item_impl);
+    }
+
+    fn visit_item_enum(&mut self, item_enum: &'ast ItemEnum) {
+        let enum_name = item_enum.ident.to_string();
+        let description = extract_doc_comment(&item_enum.attrs);
+        let variants = extract_enum_variants(&item_enum);
+
+        self.module_map
+            .entry(self.current_module.clone())
+            .or_insert_with(|| ModuleInfo {
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
+                traits: Vec::new(),
+                submodules: Vec::new(),
+                functions: Vec::new(),
+                description: String::new(),
+            })
+            .enums
+            .insert(
+                enum_name.clone(),
+                EnumInfo {
+                    variants,
+                    derives: extract_derives(&item_enum.attrs),
+                    impl_traits: Vec::new(),
+                    description,
+                },
+            );
+
+        syn::visit::visit_item_enum(self, item_enum);
+    }
+
     fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
         let fn_name = item_fn.sig.ident.to_string();
         let description = extract_doc_comment(&item_fn.attrs);
-        let parameters = extract_function_params(&item_fn.sig.inputs);
+        let parameters = extract_function_params(&item_fn.sig.inputs, &self.current_module);
         let return_type = match &item_fn.sig.output {
-            ReturnType::Default => "()".to_string(), // Default return type is `()`
-            ReturnType::Type(_, ty) => get_type_name(ty), // Extract the specified return type
+            ReturnType::Default => "()".to_string(),
+            ReturnType::Type(_, ty) => get_type_name(ty, &self.current_module),
         };
+
+        let public = matches!(item_fn.vis, syn::Visibility::Public(_));
 
         let function_info = FunctionInfo {
             name: fn_name.clone(),
             parameters,
+            public,
             return_type,
             description,
         };
@@ -98,7 +240,8 @@ impl<'ast> Visit<'ast> for ModulesVisitor {
         self.module_map
             .entry(self.current_module.clone())
             .or_insert_with(|| ModuleInfo {
-                structs: HashMap::new(),
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
                 traits: Vec::new(),
                 submodules: Vec::new(),
                 functions: Vec::new(),
@@ -107,30 +250,17 @@ impl<'ast> Visit<'ast> for ModulesVisitor {
             .functions
             .push(function_info.clone());
 
-        if let Some(receiver) = item_fn.sig.receiver() {
-            if let syn::Type::Path(type_path) = &*receiver.ty {
-                if let Some(segment) = type_path.path.segments.last() {
-                    let struct_name = segment.ident.to_string();
-                    if let Some(module_info) = self.module_map.get_mut(&self.current_module) {
-                        if let Some(struct_info) = module_info.structs.get_mut(&struct_name) {
-                            struct_info.functions.push(function_info);
-                        }
-                    }
-                }
-            }
-        }
-
         syn::visit::visit_item_fn(self, item_fn);
     }
 
-    // Collect module descriptions
     fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
         let description = extract_doc_comment(&item_mod.attrs);
 
         self.module_map
             .entry(self.current_module.clone())
             .or_insert_with(|| ModuleInfo {
-                structs: HashMap::new(),
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
                 traits: Vec::new(),
                 submodules: Vec::new(),
                 functions: Vec::new(),
@@ -147,29 +277,83 @@ impl<'ast> Visit<'ast> for ModulesVisitor {
         syn::visit::visit_item_mod(self, item_mod);
     }
 
-    // Collect trait implementations
-    fn visit_item_impl(&mut self, item_impl: &'ast ItemImpl) {
-        if let syn::Type::Path(TypePath { path, .. }) = &*item_impl.self_ty {
-            if let Some(struct_name) = path.get_ident() {
-                let struct_name = struct_name.to_string();
+    fn visit_item_trait(&mut self, item_trait: &'ast ItemTrait) {
+        let trait_name = item_trait.ident.to_string();
+        let description = extract_doc_comment(&item_trait.attrs);
 
-                if let Some((_, trait_path, _)) = &item_impl.trait_ {
-                    let trait_name = format_path(trait_path);
+        let mut functions = Vec::new();
 
-                    if let Some(module) = self.module_map.get_mut(&self.current_module) {
-                        if let Some(struct_info) = module.structs.get_mut(&struct_name) {
-                            struct_info.impl_traits.push(trait_name);
-                        }
-                    }
-                }
+        // Extract functions from trait items
+        for item in &item_trait.items {
+            if let TraitItem::Fn(TraitItemFn { sig, attrs, .. }) = item {
+                let fn_name = sig.ident.to_string();
+                let parameters = extract_function_params(&sig.inputs, &self.current_module);
+                let return_type = match &sig.output {
+                    ReturnType::Default => "()".to_string(),
+                    ReturnType::Type(_, ty) => get_type_name(ty, &self.current_module),
+                };
+
+                let public = true; // Trait methods are generally public unless specified otherwise
+
+                let description = extract_doc_comment(attrs);
+
+                functions.push(FunctionInfo {
+                    name: fn_name,
+                    parameters,
+                    public,
+                    return_type,
+                    description,
+                });
             }
         }
 
-        syn::visit::visit_item_impl(self, item_impl);
+        // Store trait-related information (like functions)
+        let trait_info = TraitInfo {
+            name: trait_name,
+            functions,
+            description,
+        };
+
+        // Add the trait and its functions to the module map
+        self.module_map
+            .entry(self.current_module.clone())
+            .or_insert_with(|| ModuleInfo {
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
+                traits: Vec::new(),
+                submodules: Vec::new(),
+                functions: Vec::new(),
+                description: String::new(),
+            })
+            .traits
+            .push(trait_info.clone());
+
+        syn::visit::visit_item_trait(self, item_trait);
     }
 }
 
-/// Extract the traits that are implemented via derive
+fn extract_struct_members(fields: &syn::Fields, current_module: &str) -> Vec<MemberInfo> {
+    fields
+        .iter()
+        .filter_map(|field| {
+            let name = field
+                .ident
+                .as_ref()
+                .map_or("<unnamed>".to_string(), |ident| ident.to_string());
+            let member_type = get_type_name(&field.ty, current_module); // Fully qualified name
+            Some(MemberInfo { name, member_type })
+        })
+        .collect()
+}
+
+fn extract_enum_variants(item_enum: &syn::ItemEnum) -> Vec<String> {
+    item_enum
+        .variants
+        .iter()
+        .map(|variant| variant.ident.to_string())
+        .collect()
+}
+
 fn extract_derives(attrs: &[Attribute]) -> Vec<String> {
     attrs
         .iter()
@@ -188,33 +372,23 @@ fn extract_derives(attrs: &[Attribute]) -> Vec<String> {
         .collect()
 }
 
-// A function that takes a Type and returns its string representation
-fn get_type_name(ty: &Type) -> String {
+fn get_type_name(ty: &Type, current_module: &str) -> String {
     match ty {
-        Type::Path(type_path) => {
-            // Convert the path type to string (e.g., `String`, `Option<T>`, etc.)
-            type_path.to_token_stream().to_string()
-        }
-        Type::Reference(type_ref) => {
-            // Handle references (e.g., `&String` -> `String`)
-            get_type_name(&*type_ref.elem)
-        }
+        Type::Path(type_path) => type_path.to_token_stream().to_string(),
+        Type::Reference(type_ref) => format!("&{}", get_type_name(&*type_ref.elem, current_module)),
         Type::Tuple(tuple_type) => {
-            // Handle tuples (e.g., `(i32, String)`)
-            let types: Vec<String> = tuple_type.elems.iter().map(get_type_name).collect();
+            let types: Vec<String> = tuple_type
+                .elems
+                .iter()
+                .map(|elem| get_type_name(elem, current_module))
+                .collect();
             format!("({})", types.join(", "))
         }
         Type::Slice(slice_type) => {
-            // Handle slices (e.g., `[T]`)
-            format!("[{}]", get_type_name(&*slice_type.elem))
+            format!("[{}]", get_type_name(&*slice_type.elem, current_module))
         }
-        // Handle other type variants as necessary
-        _ => ty.to_token_stream().to_string(),
+        _ => ty.into_token_stream().to_string(),
     }
-    .split("::")
-    .last()
-    .unwrap()
-    .to_string()
 }
 
 fn extract_doc_comment(attrs: &[Attribute]) -> String {
@@ -223,44 +397,27 @@ fn extract_doc_comment(attrs: &[Attribute]) -> String {
         .filter_map(|attr| {
             match attr.style {
                 syn::AttrStyle::Outer => {
-                    // Outer attributes are doc comments
                     if let Meta::NameValue(meta) = &attr.meta {
-                        // MetaNameValue now has `value` field instead of `lit`
                         if let syn::Expr::Lit(syn::ExprLit {
                             lit: Lit::Str(lit_str),
                             ..
                         }) = &meta.value
                         {
-                            // Return the string content inside the doc comment
                             return Some(lit_str.value());
                         }
                     }
                 }
                 _ => {}
             }
-
-            // Check if this is a documentation comment (/// or /** */)
-
-            // Parse the meta to extract the literal (the actual comment content)
-            if let Meta::NameValue(meta) = &attr.meta {
-                // MetaNameValue now has `value` field instead of `lit`
-                if let syn::Expr::Lit(syn::ExprLit {
-                    lit: Lit::Str(lit_str),
-                    ..
-                }) = &meta.value
-                {
-                    // Return the string content inside the doc comment
-                    return Some(lit_str.value());
-                }
-            }
-
             None
         })
         .collect::<Vec<String>>()
         .join(" ")
 }
+
 fn extract_function_params(
     inputs: &syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
+    current_module: &str,
 ) -> Vec<ParameterInfo> {
     inputs
         .iter()
@@ -269,7 +426,7 @@ fn extract_function_params(
                 if let syn::Pat::Ident(PatIdent { ident, .. }) = &**pat {
                     return Some(ParameterInfo {
                         name: ident.to_string(),
-                        param_type: get_type_name(&**ty),
+                        param_type: get_type_name(&**ty, current_module),
                     });
                 }
             }
@@ -278,7 +435,6 @@ fn extract_function_params(
         .collect()
 }
 
-/// Format path
 fn format_path(path: &syn::Path) -> String {
     path.segments
         .iter()

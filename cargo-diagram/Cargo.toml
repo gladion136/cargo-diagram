@@ -8,6 +8,8 @@ license = "MIT"
 repository = "https://github.com/gladion136/cargo-diagram"
 
 [dependencies]
-cargo-diagram-visitors = { version = "0.1.2" }
-cargo-diagram-printers = { version = "0.1.2" }
+cargo-diagram-visitors = { path = "../cargo-diagram-visitors" }
+cargo-diagram-printers = { path = "../cargo-diagram-printers" }
 tracing = "0"
+clap = { version = "4.5.4", features = ["derive"] }
+clap_derive = "=4.5.18"

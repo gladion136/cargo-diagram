@@ -25,4 +25,15 @@ cargo install cargo-diagram
 
 ## Module Overview
 
-![](./overview.png)
+## Default
+
+![](./docs/assets/overview.png)
+
+
+## Detailed
+
+With 
+- private functions
+- relations of structs
+
+![](./docs/assets/overview_detailed.png)

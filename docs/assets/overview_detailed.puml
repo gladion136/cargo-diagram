@@ -1,0 +1,168 @@
+@startuml
+left to right direction
+skinparam lineType ortho
+package cargo_diagram__main #lightskyblue {
+  class cargo_diagram__main::Args as "Args" <<struct>> {
+    '  Creates diagrams about your crate
+    .. Derives ..
+    Parser
+    Debug
+    .. Members ..
+    relations: bool
+    path: PathBuf
+    output: PathBuf
+    module_color: String
+    trait_color: String
+    functions_private: bool
+  }
+  package analyzer #lightskyblue {
+    class analyzer_mod <<mod>> #lightskyblue {
+      .. Module functions ..
+      //  Analyze a repository
+      + analyze_repository(current_dir: &Path, visitor: &ModulesVisitor) -> ()
+    }
+  }
+}
+package cargo_diagram_printers__lib #lightskyblue {
+  class cargo_diagram_printers__lib::PrintOptions as "PrintOptions" <<struct>> {
+    .. Derives ..
+    Clone
+    .. Members ..
+    relations: bool
+    module_color: String
+    trait_color: String
+    functions_private: bool
+  }
+  interface cargo_diagram_printers__lib::Printer as "Printer" #violet {
+    .. Functions ..
+    + print(visitor: &ModulesVisitor, options: PrintOptions) -> String
+  }
+  package console #lightskyblue {
+    class console::ConsolePrinter as "ConsolePrinter" <<struct>> {
+      .. Implements ..
+      Printer
+      .. Functions ..
+      + print(visitor: &ModulesVisitor, _opt: PrintOptions) -> String
+    }
+    class console_mod <<mod>> #lightskyblue {
+      .. Module functions ..
+      //  Prints Modules, structs, traits and implementations
+      + print_to_console(visitor: &ModulesVisitor, opt: PrintOptions) -> ()
+    }
+  }
+  package uml #lightskyblue {
+    class uml::UMLPrinter as "UMLPrinter" <<struct>> {
+      .. Implements ..
+      Printer
+      .. Functions ..
+      + print(visitor: &ModulesVisitor, opt: PrintOptions) -> String
+    }
+    class uml_mod <<mod>> #lightskyblue {
+      .. Module functions ..
+      //  Print uml (Plantuml)
+      + print_uml_to_file(visitor: &ModulesVisitor, output_path: &PathBuf, opt: PrintOptions) -> ()
+    }
+  }
+}
+package cargo_diagram_visitors__lib #lightskyblue {
+  class cargo_diagram_visitors__lib_mod <<mod>> #lightskyblue {
+    .. Module functions ..
+    //  Analyze a file and add content to visitor
+    + analyze_file(file_path: &StdPath, base_dir: &StdPath, module_name: &str, visitor: &ModulesVisitor) -> ()
+  }
+  package module_visitor #lightskyblue {
+    class module_visitor::EnumInfo as "EnumInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      variants: Vec < String >
+      derives: Vec < String >
+      impl_traits: Vec < String >
+      description: String
+    }
+    class module_visitor::FunctionInfo as "FunctionInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      name: String
+      parameters: Vec < ParameterInfo >
+      public: bool
+      return_type: String
+      description: String
+    }
+    class module_visitor::MemberInfo as "MemberInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      name: String
+      member_type: String
+    }
+    class module_visitor::ModuleInfo as "ModuleInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      structs: BTreeMap < String , StructInfo >
+      enums: BTreeMap < String , EnumInfo >
+      traits: Vec < TraitInfo >
+      submodules: Vec < String >
+      functions: Vec < FunctionInfo >
+      description: String
+    }
+    class module_visitor::ModulesVisitor as "ModulesVisitor" <<struct>> {
+      .. Implements ..
+      Visit<...>
+      .. Members ..
+      module_map: BTreeMap < String , ModuleInfo >
+      current_module: String
+      .. Functions ..
+      + visit_item_struct(item_struct: &ItemStruct) -> ()
+      + visit_item_impl(item_impl: &ItemImpl) -> ()
+      + visit_item_enum(item_enum: &ItemEnum) -> ()
+      + visit_item_fn(item_fn: &ItemFn) -> ()
+      + visit_item_mod(item_mod: &ItemMod) -> ()
+      + visit_item_trait(item_trait: &ItemTrait) -> ()
+    }
+    class module_visitor::ParameterInfo as "ParameterInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      name: String
+      param_type: String
+    }
+    class module_visitor::StructInfo as "StructInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      derives: Vec < String >
+      impl_traits: Vec < String >
+      functions: Vec < FunctionInfo >
+      members: Vec < MemberInfo >
+      description: String
+    }
+    class module_visitor::TraitInfo as "TraitInfo" <<struct>> {
+      .. Derives ..
+      Debug
+      Clone
+      .. Members ..
+      name: String
+      functions: Vec < FunctionInfo >
+      description: String
+    }
+  }
+}
+module_visitor::FunctionInfo --> module_visitor::ParameterInfo
+module_visitor::ModuleInfo --> module_visitor::StructInfo
+module_visitor::ModuleInfo --> module_visitor::EnumInfo
+module_visitor::ModuleInfo --> module_visitor::TraitInfo
+module_visitor::ModuleInfo --> module_visitor::FunctionInfo
+module_visitor::ModulesVisitor --> module_visitor::ModuleInfo
+module_visitor::StructInfo --> module_visitor::FunctionInfo
+module_visitor::StructInfo --> module_visitor::MemberInfo
+module_visitor::TraitInfo --> module_visitor::FunctionInfo
+@enduml

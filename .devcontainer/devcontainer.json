@@ -1,0 +1,19 @@
+{
+    "name": "Rust DevContainer with PlantUML",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "."
+    },
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "extensions": [
+        "rust-lang.rust-analyzer",
+        "matklad.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "esbenp.prettier-vscode",
+        "jebbs.plantuml"
+    ],
+    "postCreateCommand": "rustup component add clippy rustfmt && cargo install cargo-edit",
+    "remoteUser": "vscode"
+}
